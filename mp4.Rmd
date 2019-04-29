@@ -2,34 +2,60 @@
 title: "mp4"
 author: "Abby Moss"
 date: "April 27, 2019"
-output: html_document
+output: 
+  html_document:
+  code_folding: hide
 ---
 
 ```{r, message = FALSE, warning = FALSE}
-
+# Loading libraries ----
 library(RMySQL)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
 db <- dbConnect(MySQL(), 
                 host = "scidb.smith.edu", 
                 user = "mth292", 
                 password = "RememberPi", 
                 dbname = "imdb")
+```
 
-sql <- "
-SELECT company_name.name, t.title, company_name.id, t.production_year, mi2.info AS rating, mi1.info AS votes
+```{r}
+# Retrieving data from SQL ----
+sql <- db %>%
+  dbGetQuery( "SELECT company_name.name, t.title, company_name.id, t.production_year, movie_info.info AS gross,
+mi2.info AS rating, 
+mi1.info AS votes
 FROM company_name
 JOIN movie_companies ON movie_companies.company_id = company_name.id
 JOIN title t ON movie_companies.movie_id = t.id
 JOIN movie_info_idx AS mi2 ON mi2.movie_id = t.id
 JOIN movie_info_idx AS mi1 ON mi1.movie_id = t.id
-WHERE (name = 'Marvel Entertainment' OR name = 'DC Comics') 
+JOIN movie_info ON movie_info.movie_id = t.id
+WHERE (name LIKE '%Marvel%' OR name LIKE '%DC Comics') 
 	AND t.kind_id = 1 
     AND mi1.info_type_id = 100
     AND mi2.info_type_id = 101
-ORDER BY mi2.info DESC
-"
+    and movie_info.info_type_id = 108
+and movie_info.info like '%USA%'
+ORDER BY gross  DESC
+LIMIT 0,100")
 
+kable(sql)%>%
+    kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
 
-dbGetQuery(db, sql)
+```
 
-
+```{r}
+# Putting movies into categories ----
+sql <- sql %>%
+  mutate(movie_cat =  recode_factor(name, 
+                                 "Marvel Enterprises" = "Marvel",
+                                 "Marvel Studios" = "Marvel",
+                                 "DC Comics" = "DC", 
+                                 "Marvel Entertainment" = "Marvel",
+                                 "Marvel Knights" = "Marvel",
+                                 "Marvel Productions" = "Marvel", 
+                                 "Marvel Studios" = "Marvel"))
 ```
