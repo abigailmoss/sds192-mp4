@@ -1,15 +1,19 @@
 ---
-title: "mp4"
-author: "Abby Moss"
-date: "April 27, 2019"
 output: 
   html_document:
+  theme: kate
   code_folding: hide
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
 
 ```{r, message = FALSE, warning = FALSE}
 # Loading libraries ----
 library(RMySQL)
+library(plyr)
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
@@ -21,7 +25,24 @@ db <- dbConnect(MySQL(),
                 dbname = "imdb")
 ```
 
-```{r}
+`
+
+`r format(Sys.Date(), "%B %e, %Y")`
+
+###Title
+
+By:  [Abby Moss](https://github.com/abigailmoss), [Elise Schatzki-McClain](https://github.com/EliseS-M), [Viola Nguyen](https://github.com/violanguyen) 
+
+tags: [DC Comic](https://www.reddit.com/search?q=dc%20comic), [Marvel](https://www.reddit.com/search?q=marvel), [Endgame](https://www.reddit.com/search?q=endgame)
+
+Get the data on: [Github](https://github.com/abigailmoss/sds192-mp4)
+
+![](https://geeksoncoffee.com/wp-content/uploads/2018/12/finall-1024x538.jpg)
+
+
+
+
+```{r, message = FALSE, warning = FALSE}
 # Retrieving data from SQL ----
 sql <- db %>%
   dbGetQuery( "SELECT company_name.name, t.title, company_name.id, t.production_year, movie_info.info AS gross,
@@ -33,21 +54,18 @@ JOIN title t ON movie_companies.movie_id = t.id
 JOIN movie_info_idx AS mi2 ON mi2.movie_id = t.id
 JOIN movie_info_idx AS mi1 ON mi1.movie_id = t.id
 JOIN movie_info ON movie_info.movie_id = t.id
-WHERE (name LIKE '%Marvel%' OR name LIKE '%DC Comics') 
+WHERE (name LIKE '%Marvel%' OR name LIKE '%DC% Comics') 
 	AND t.kind_id = 1 
     AND mi1.info_type_id = 100
     AND mi2.info_type_id = 101
     and movie_info.info_type_id = 108
-and movie_info.info like '%USA%'
+AND movie_info.info like '%USA%'
+GROUP BY title
 ORDER BY gross  DESC
 LIMIT 0,100")
-
-kable(sql)%>%
-    kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
-
 ```
 
-```{r}
+```{r, message = FALSE, warning = FALSE}
 # Putting movies into categories ----
 sql <- sql %>%
   mutate(movie_cat =  recode_factor(name, 
@@ -59,3 +77,64 @@ sql <- sql %>%
                                  "Marvel Productions" = "Marvel", 
                                  "Marvel Studios" = "Marvel"))
 ```
+
+```{r, message = FALSE, warning = FALSE}
+# Change column into numerical
+sql$rating <- as.numeric(as.character(sql$rating))
+sql$votes <- as.numeric(as.character(sql$votes))
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+# DC Average ratings ----
+a1<-sql%>%
+  group_by(movie_cat)%>%
+  summarise(
+    avg= mean(rating)
+  )
+a1$avg<-formatC(a1$avg,digits=2,format="f")
+```
+
+```{r, message = FALSE, warning = FALSE}
+# Marvel Average ratings ----
+b1<-sql%>%
+  group_by(movie_cat)%>%
+  summarise(
+    votes= mean(votes)
+  )
+b1$votes<-formatC(b1$votes,digits=0,format="f")
+```
+
+
+```{r,  message = FALSE, warning = FALSE, fig.show = "hold", out.width= "50%"}
+# PLOTS ----
+ggplot(a1, aes(x=movie_cat,y=avg))+
+  geom_bar( stat = "identity", width = 0.6, fill="blue", alpha=0.3)+
+  labs( x=" Movie category ", y = "Average rating", 
+       title = " Marvel vs DC by ratings ")+
+  geom_text(aes(label=avg), vjust=-1)
+
+ggplot(b1, aes(x=movie_cat,y=votes))+
+  geom_bar( stat = "identity", width = 0.6, fill="red", alpha=0.4)+
+  labs( x=" Movie category ", y = "Average votes", 
+       title = " Marvel vs DC by votes ")+
+  geom_text(aes(label=votes), vjust=-1)
+```
+
+
+```{r}
+# SQL table ----
+kable(sql)%>%
+    kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+```
+
+```{r}
+sql<-sql%>%
+mutate(V2 = strsplit(as.character(gross), " ")) %>% 
+    unnest(gross)
+```
+
+
+
+
+
